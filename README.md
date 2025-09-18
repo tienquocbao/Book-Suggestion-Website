@@ -46,7 +46,15 @@ Book-Recommendation-System/
 Dùng dataset từ link: https://www.kaggle.com/datasets/saurabhbagchi/books-dataset
 ```
 
+---
+
 ## ⚙️ Cài đặt
+
+### 0. Clone repository từ GitHub
+```bash
+git clone https://github.com/tienquocbao/Book-Suggestion-Website.git
+cd Book-Suggestion-Website
+```
 
 ### 1. Tạo môi trường ảo (khuyến nghị)
 ```bash
@@ -109,4 +117,4 @@ Trang `new.html` trong thư mục `templates/` sẽ được hiển thị.
 - Luôn trả về đúng **5 sách** (fallback hai tầng khi cần).
 - Nếu `new.html` trống → trang chủ sẽ hiển thị trắng (không phải lỗi).
 - **Model:** cần giải nén `knn_basic_best-para_20k.zip` để có file `.pkl`.
-- **Cài đặt scikit-surprise:** nếu gặp lỗi, hãy dùng Python ≤ 3.11 và cài bằng file `.whl`.
+- **Cài đặt scikit-surprise:** nếu gặp lỗi, hãy dùng Python ≤ 3.11 và cài bằng file `.whl` từ link [Link tải wheel](https://www.cgohlke.com/#scikit-surprise).
