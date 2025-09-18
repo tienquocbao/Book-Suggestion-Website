@@ -40,6 +40,12 @@ Book-Recommendation-System/
 
 ---
 
+## Dataset dùng để train
+[Books Dataset](https://www.kaggle.com/datasets/saurabhbagchi/books-dataset)
+```
+Dùng dataset từ link: https://www.kaggle.com/datasets/saurabhbagchi/books-dataset
+```
+
 ## ⚙️ Cài đặt
 
 ### 1. Tạo môi trường ảo (khuyến nghị)
