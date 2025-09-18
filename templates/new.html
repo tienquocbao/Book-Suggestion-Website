@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Recommender - Đề xuất sách</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="main-header">
+            <h1>Book Recommender</h1>
+            <p>Tìm kiếm những cuốn sách tuyệt vời tiếp theo của bạn</p>
+        </header>
+
+        <section class="suggested-books-section">
+            <h2>Sách Được Yêu Thích</h2>
+            <p>Nhấp vào một cuốn sách để nhanh chóng thêm vào danh sách đánh giá của bạn.</p>
+            <div class="suggestions-grid" id="popular-books-grid">
+                <div class="skeleton-loader"></div><div class="skeleton-loader"></div>
+                <div class="skeleton-loader"></div><div class="skeleton-loader"></div>
+                <div class="skeleton-loader"></div><div class="skeleton-loader"></div>
+                <div class="skeleton-loader"></div><div class="skeleton-loader"></div>
+                <div class="skeleton-loader"></div><div class="skeleton-loader"></div>
+            </div>
+        </section>
+
+        <main class="main-card">
+            <h2>Đánh giá của bạn</h2>
+            <p>Nhập tối đa 5 cuốn sách bạn đã đọc và cho điểm chúng bằng cách nhấp vào ngôi sao.</p>
+            <form id="rating-form" onsubmit="event.preventDefault(); getRecommendations();">
+                <div id="book-ratings" class="book-ratings-container">
+                    </div>
+                <div class="form-actions">
+                    <button type="button" onclick="addBook()" class="btn btn-secondary">Thêm sách</button>
+                    <button type="submit" class="btn btn-primary">Lấy đề xuất</button>
+                </div>
+            </form>
+        </main>
+
+        <div id="error" class="error-box" style="display: none;"></div>
+        <div id="custom-alert" class="custom-alert"><p id="custom-alert-message"></p></div>
+
+        <section id="results-section" class="results-card" style="display: none;">
+            <h2>Đề xuất dành cho bạn</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Bìa sách</th>
+                            <th>Tên sách</th>
+                            <th>Tác giả</th>
+                            <th>Điểm dự đoán</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recommendations"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+<script>
+    let bookCounter = 0;
+
+    // --- KHỞI TẠO ---
+    document.addEventListener('DOMContentLoaded', () => {
+        loadPopularBooks();
+        addBook(); // Thêm ô nhập liệu đầu tiên khi tải trang
+    });
+
+    // --- ALERT TÙY CHỈNH ---
+    function showCustomAlert(message) {
+        const alertBox = document.getElementById('custom-alert');
+        alertBox.querySelector('p').textContent = message;
+        alertBox.classList.add('show');
+        setTimeout(() => alertBox.classList.remove('show'), 3000);
+    }
+
+    // --- TẢI SÁCH PHỔ BIẾN ---
+    async function loadPopularBooks() {
+        const grid = document.getElementById('popular-books-grid');
+        try {
+            const res = await fetch('/popular_books');
+            if (!res.ok) throw new Error(`Server error: ${res.statusText}`);
+            const popularBooks = await res.json();
+            grid.innerHTML = '';
+            popularBooks.forEach(book => {
+                const card = document.createElement('div');
+                card.className = 'suggested-book-card';
+                card.onclick = () => addSuggestedBook(book.title, book.book_id);
+                card.innerHTML = `
+                    <img src="${book.image_url}" alt="Bìa sách ${book.title}" onerror="this.src='https://placehold.co/120x180/1f2937/9ca3af?text=No+Image'">
+                    <div class="book-title">${book.title}</div>`;
+                grid.appendChild(card);
+            });
+        } catch (e) {
+            console.error('Lỗi tải sách phổ biến:', e);
+            grid.innerHTML = `<p class="error-text">Không thể tải sách phổ biến.</p>`;
+        }
+    }
+
+    // --- QUẢN LÝ DANH SÁCH ĐÁNH GIÁ ---
+    function addBook(title = '', bookId = '') {
+        const container = document.getElementById('book-ratings');
+        if (container.children.length >= 5) {
+            showCustomAlert('Chỉ được thêm tối đa 5 cuốn.');
+            return null;
+        }
+        bookCounter++;
+        const itemId = `book-item-${bookCounter}`;
+        const suggestionsId = `suggestions-${bookCounter}`;
+
+        const div = document.createElement('div');
+        div.className = 'book-rating-item';
+        div.id = itemId;
+        div.innerHTML = `
+            <div class="book-input-row">
+                <div class="input-group">
+                    <input type="text" name="book_title_${bookCounter}" placeholder="Nhập tên sách..." oninput="fetchSuggestions(this, '${suggestionsId}')" required value="${title}" autocomplete="off">
+                    <input type="hidden" name="book_id_${bookCounter}">
+                    <div id="${suggestionsId}" class="suggestions-dropdown"></div>
+                </div>
+                <button type="button" class="btn-delete" onclick="removeBook('${itemId}')">&times;</button>
+            </div>
+            <div class="rating-group">
+                <span>Đánh giá:</span>
+                <div class="star-rating" id="rating-container-${bookCounter}">
+                    ${[...Array(5).keys()].map(i => `<span class="star" data-value="${i + 1}">&#9733;</span>`).join('')}
+                </div>
+                <input type="hidden" name="rating_${bookCounter}" class="rating-value" required>
+            </div>
+        `;
+        container.appendChild(div);
+        setupStarRating(div.querySelector('.star-rating'));
+        if (bookId) {
+            div.querySelector(`input[name='book_id_${bookCounter}']`).value = bookId;
+        }
+        return div;
+    }
+
+    function removeBook(itemId) {
+        const item = document.getElementById(itemId);
+        if (item) {
+            item.remove();
+            // Nếu không còn ô nhập nào, hãy thêm một ô mới
+            if (document.getElementById('book-ratings').children.length === 0) {
+                addBook();
+            }
+        }
+    }
+
+    function addSuggestedBook(title, bookId) {
+        const emptyInput = Array.from(document.querySelectorAll('.book-rating-item input[type="text"]')).find(input => !input.value);
+        if (emptyInput) {
+            const parentItem = emptyInput.closest('.book-rating-item');
+            emptyInput.value = title;
+            parentItem.querySelector('input[type="hidden"][name^="book_id"]').value = bookId;
+            showCustomAlert(`Đã thêm "${title}".`);
+            parentItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            const newItem = addBook(title, bookId);
+            if (newItem) {
+                showCustomAlert(`Đã thêm "${title}".`);
+                newItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+    }
+
+    // --- HỆ THỐNG GỢI Ý & ĐÁNH GIÁ SAO ---
+    async function fetchSuggestions(input, containerId) {
+        const q = input.value.trim();
+        const container = document.getElementById(containerId);
+        if (q.length < 2) {
+            container.innerHTML = ''; container.style.display = 'none'; return;
+        }
+        try {
+            const res = await fetch(`/autocomplete?query=${encodeURIComponent(q)}`);
+            if (!res.ok) throw new Error(res.statusText);
+            const suggestions = await res.json();
+            container.innerHTML = '';
+            if (suggestions.length) {
+                suggestions.forEach(book => {
+                    const div = document.createElement('div');
+                    div.className = 'suggestion-item';
+                    div.textContent = book.title;
+
+                    div.onclick = () => selectBook(input, container, book.book_id, book.title);
+                    container.appendChild(div);
+                });
+            } else {
+                container.innerHTML = '<div class="suggestion-item-none">Không tìm thấy sách.</div>';
+            }
+            container.style.display = 'block';
+        } catch (e) {
+            console.error('Lỗi gợi ý:', e);
+        }
+    }
+    
+    function selectBook(input, container, bookId, title) {
+        const parentItem = input.closest('.book-rating-item');
+        input.value = title;
+        parentItem.querySelector('input[type="hidden"][name^="book_id"]').value = bookId;
+        container.innerHTML = '';
+        container.style.display = 'none';
+    }
+
+    function setupStarRating(starContainer) {
+        const stars = starContainer.querySelectorAll('.star');
+        const ratingInput = starContainer.parentElement.querySelector('.rating-value');
+        
+        stars.forEach(star => {
+            star.addEventListener('click', () => {
+                const value = star.dataset.value;
+                ratingInput.value = value;
+                updateStars(stars, value);
+            });
+            star.addEventListener('mouseover', () => updateStars(stars, star.dataset.value, true));
+        });
+        
+        starContainer.addEventListener('mouseleave', () => updateStars(stars, ratingInput.value));
+    }
+
+    function updateStars(stars, value, isHover = false) {
+        stars.forEach(s => {
+            s.classList.toggle('hover', isHover && s.dataset.value <= value);
+            s.classList.toggle('selected', !isHover && s.dataset.value <= value);
+        });
+    }
+
+    // --- LẤY ĐỀ XUẤT ---
+    async function getRecommendations() {
+        const form = document.getElementById('rating-form');
+        const formData = new FormData(form);
+        const errorDiv = document.getElementById('error');
+        const resultsSec = document.getElementById('results-section');
+        const tbody = document.getElementById('recommendations');
+
+        // Kiểm tra xem có sách hợp lệ nào không
+        let hasValidBook = false;
+        for(let i = 1; i <= bookCounter; i++) {
+            if (formData.get(`book_id_${i}`) && formData.get(`rating_${i}`)) {
+                hasValidBook = true;
+                break;
+            }
+        }
+        
+        if (!hasValidBook) {
+            showCustomAlert('Vui lòng chọn sách từ gợi ý và cho điểm.');
+            return;
+        }
+
+        errorDiv.style.display = 'none';
+        resultsSec.style.display = 'block';
+        tbody.innerHTML = `<tr><td colspan="4" class="loading-text">Đang tìm kiếm đề xuất...</td></tr>`;
+        resultsSec.scrollIntoView({ behavior: 'smooth' });
+
+        try {
+            const res = await fetch('/recommend', { method: 'POST', body: formData });
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+                throw new Error(data.error || "Có lỗi xảy ra từ máy chủ.");
+            }
+            
+            tbody.innerHTML = '';
+            if (data.recommendations && data.recommendations.length > 0) {
+                 data.recommendations.forEach(book => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><img src="${book.image_url}" alt="${book.title}" class="book-cover-thumbnail" onerror="this.src='https://placehold.co/80x120/1f2937/9ca3af?text=N/A'"></td>
+                        <td class="result-title">${book.title}</td>
+                        <td>${book.authors}</td>
+                        <td class="result-rating">${book.estimated_rating.toFixed(2)}</td>`;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                 tbody.innerHTML = `<tr><td colspan="4" class="loading-text">Không tìm thấy sách đề xuất phù hợp.</td></tr>`;
+            }
+
+        } catch (e) {
+            console.error('Lỗi lấy đề xuất:', e);
+            errorDiv.innerText = e.message;
+            errorDiv.style.display = 'block';
+            resultsSec.style.display = 'none';
+        }
+    }
+
+    // --- SỰ KIỆN TOÀN CỤC ---
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.input-group')) {
+            document.querySelectorAll('.suggestions-dropdown').forEach(box => box.style.display = 'none');
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+flask
+pandas
+numpy<=1.26.4
+scikit-surprise
+scipy
+joblib
+jinja2
+werkzeug
+itsdangerous
+click
